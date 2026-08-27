@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+
+torch
+torchvision
+transformers
+accelerate
+bitsandbytes
+qwen-vl-utils
+
+pymupdf
+pillow

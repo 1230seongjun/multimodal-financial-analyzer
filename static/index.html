@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>재무 리포트 분석</title>
+<style>
+  :root {
+    --navy: #0f1e33;
+    --navy-light: #1c3252;
+    --paper: #f6f4ee;
+    --ink: #1a1a1a;
+    --muted: #6b6b64;
+    --accent: #b5834a;
+    --line: #ddd8cc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", -apple-system, sans-serif;
+    line-height: 1.6;
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 28px 24px;
+  }
+  header .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #9fb3cf;
+    margin-bottom: 6px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    font-size: 15px;
+    font-family: inherit;
+    margin-bottom: 18px;
+    background: var(--paper);
+  }
+  input[type="text"]:focus {
+    outline: 2px solid var(--navy-light);
+    outline-offset: 1px;
+  }
+  button {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 3px;
+    cursor: pointer;
+    width: 100%;
+  }
+  button:hover { background: var(--navy-light); }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  #status {
+    display: none;
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 14px;
+  }
+  #status.visible { display: flex; align-items: center; gap: 8px; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--line);
+    border-top-color: var(--navy);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #result { display: none; }
+  #result.visible { display: block; }
+  .result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .result-header h2 {
+    font-size: 15px;
+    margin: 0;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .sources {
+    display: flex;
+    gap: 6px;
+  }
+  .source-tag {
+    font-size: 11px;
+    padding: 3px 8px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 100px;
+    font-weight: 600;
+  }
+  .answer-text {
+    font-size: 15.5px;
+    white-space: pre-wrap;
+    color: var(--ink);
+  }
+  .disclaimer {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  #error {
+    display: none;
+    color: #a33;
+    font-size: 14px;
+    margin-top: 14px;
+  }
+  #error.visible { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Financial report analysis</div>
+  <h1>회사명으로 재무 리포트 분석하기</h1>
+</header>
+
+<main>
+  <div class="card">
+    <label for="company">회사명</label>
+    <input type="text" id="company" placeholder="예: 삼성전자" value="삼성전자">
+
+    <label for="question">질문</label>
+    <input type="text" id="question" placeholder="예: 부채 추이가 어떻게 돼?" value="부채 추이가 어떻게 돼?">
+
+    <button id="submitBtn" onclick="analyze()">분석하기</button>
+
+    <div id="status">
+      <div class="spinner"></div>
+      <span id="statusText">문서를 수집하고 있습니다...</span>
+    </div>
+    <div id="error"></div>
+  </div>
+
+  <div class="card" id="result">
+    <div class="result-header">
+      <h2>분석 결과</h2>
+      <div class="sources" id="sourcesTags"></div>
+    </div>
+    <div class="answer-text" id="answerText"></div>
+    <div class="disclaimer">이 답변은 참고용 분석이며 투자 조언이 아닙니다.</div>
+  </div>
+</main>
+
+<script>
+const SOURCE_LABELS = {
+  dart_financials: "DART 재무수치",
+  dart: "DART 원문",
+  report: "증권사 리포트",
+};
+
+async function analyze() {
+  const company = document.getElementById('company').value.trim();
+  const question = document.getElementById('question').value.trim();
+  const btn = document.getElementById('submitBtn');
+  const status = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const error = document.getElementById('error');
+  const result = document.getElementById('result');
+
+  if (!company || !question) {
+    error.textContent = '회사명과 질문을 모두 입력해주세요.';
+    error.classList.add('visible');
+    return;
+  }
+
+  error.classList.remove('visible');
+  result.classList.remove('visible');
+  btn.disabled = true;
+  status.classList.add('visible');
+  statusText.textContent = '문서를 수집하고 분석하는 중입니다 (최대 몇 분 소요될 수 있습니다)...';
+
+  try {
+    const resp = await fetch('/analyze_by_company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company_name: company, question: question }),
+    });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.detail || `요청이 실패했습니다 (${resp.status})`);
+    }
+
+    const data = await resp.json();
+
+    document.getElementById('answerText').textContent = data.answer;
+
+    const tagsEl = document.getElementById('sourcesTags');
+    tagsEl.innerHTML = '';
+    (data.sources || []).forEach((src) => {
+      const tag = document.createElement('span');
+      tag.className = 'source-tag';
+      tag.textContent = SOURCE_LABELS[src] || src;
+      tagsEl.appendChild(tag);
+    });
+
+    result.classList.add('visible');
+  } catch (err) {
+    error.textContent = err.message || '알 수 없는 오류가 발생했습니다.';
+    error.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    status.classList.remove('visible');
+  }
+}
+
+document.getElementById('question').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') analyze();
+});
+</script>
+
+</body>
+</html>
